@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "manualId": "jp-early",
+  "sourceSha256": "114972567e66fcdc4feb32a885139eca6044a5def75b7d735f4a4751131bd797",
+  "sourceFile": "knowledge/sources/is250-jp-early.pdf",
+  "sourcePages": 336,
+  "language": "English",
+  "notice": "Unofficial AI translation of the user-supplied Japanese manual. Not certified or reviewed by Lexus. Original diagrams remain authoritative. Missing pages have not been translated.",
+  "pages": [
+    {
+      "page": 238,
+      "title": "Preventing damage to the hood and support struts",
+      "text": "4-2. Simple inspection and parts replacement\n\nNOTICE\nPreventing damage to the hood and damper struts\n\n• When closing the hood, do not press down hard, for example by putting your body weight on it. This may dent the hood.\n• The hood has damper struts to support it. Observe the following to prevent damage or malfunction:\n  – Do not allow foreign material such as pieces of plastic, stickers or adhesive to stick to the rod portion of a strut.\n  – Do not touch the rod with work gloves or similar items.\n  – Do not attach accessories other than genuine Lexus accessories to the hood.\n  – Do not place your hand on a strut or apply force to it sideways.\n\nPrinted page 234.",
+      "notes": [],
+      "complete": true,
+      "sourceTextSha256": "7e22c7042d62c6bde1c46c6b0295587d2d99cfa1dced7734477b92a8b9e0b7fa",
+      "method": "assistant-text-and-visual",
+      "model": "Codex",
+      "translatedAt": "2026-09-06T20:49:45.260Z",
+      "reviewStatus": "unreviewed"
+    },
+    {
+      "page": 239,
+      "title": "Positioning a floor jack",
+      "text": "4-2. Simple inspection and parts replacement\n\nFLOOR JACK\n\nWhen lifting the vehicle with a floor jack, position the jack at the correct location. Incorrect positioning may damage the vehicle or cause injury.\n\nFront\n• FR vehicles (front-engine, rear-wheel drive): see the upper front lifting-point illustration.\n• AWD vehicles (all-wheel drive): see the lower front lifting-point illustration.\n\nRear\n• See the rear lifting-point illustration.\n\nChapter 4: Caring for your vehicle.\nPrinted page 235.",
+      "notes": [
+        "The original page contains lifting-point diagrams. This text does not reproduce their geometry; open PDF page 239 and use the FR diagram for the RWD car. Read the following page’s warnings before lifting."
+      ],
+      "complete": true,
+      "sourceTextSha256": "1c125a3ab8e2133c787b475960ed8b854ff6dd75a00b0e6834cb9898531f27fe",
+      "method": "assistant-text-and-visual",
+      "model": "Codex",
+      "translatedAt": "2026-09-06T20:49:45.263Z",
+      "reviewStatus": "unreviewed"
+    },
+    {
+      "page": 240,
+      "title": "Warnings when lifting the vehicle",
+      "text": "4-2. Simple inspection and parts replacement\n\nWARNING\nWhen lifting the vehicle\n\nObserve the following precautions to reduce the risk of death or serious injury:\n\n• Lift the vehicle using a floor jack of the type shown in the illustration.\n• Before using a floor jack, carefully read the instruction manual supplied with it.\n• Do not use the jack supplied with the vehicle for this operation. The vehicle may fall.\n• Never place any part of your body underneath, or crawl under, a vehicle supported only by a floor jack.\n• Use the floor jack and vehicle jack stands on a firm, level floor without an incline.\n• Do not start the engine while the vehicle is raised.\n• Park the vehicle on firm, level ground, firmly apply the parking brake and move the shift lever to P.\n• Always position the floor jack correctly at the jacking point. Lifting with the jack incorrectly positioned can damage the vehicle, and the vehicle may fall off the jack.\n• Do not raise the vehicle with occupants inside.\n• Do not place objects above or beneath the floor jack when lifting the vehicle.\n\nPrinted page 236.",
+      "notes": [
+        "The original illustration shows the floor-jack type. Retain the original diagram as the visual reference."
+      ],
+      "complete": true,
+      "sourceTextSha256": "fce8028c74da4eaf087200dab76f040d0a0f56711af4159816b6bf2d0de514f8",
+      "method": "assistant-text-and-visual",
+      "model": "Codex",
+      "translatedAt": "2026-09-06T20:49:45.263Z",
+      "reviewStatus": "unreviewed"
+    }
+  ]
+}

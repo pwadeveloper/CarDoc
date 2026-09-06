@@ -1,4 +1,6 @@
 import corpus from "./generated/manual-pages.json";
+import translation from "../knowledge/translations/jp-early.en.json";
+import { createHash } from "node:crypto";
 import {
   findTopics,
   manuals,
@@ -41,6 +43,30 @@ export function retrievePages(query: string, edition?: string) {
       title: `${m.code} · ${m.edition} · printed p. ${x.p.page - 4}`,
       url: `${m.url}#page=${x.p.page}`,
     };
-    return { citation, text: x.p.text.slice(0, 5500) };
+    const english =
+      x.doc.id === translation.manualId &&
+      x.doc.sha256 === translation.sourceSha256
+        ? translation.pages.find(
+            (p) =>
+              p.page === x.p.page &&
+              p.complete &&
+              p.sourceTextSha256 ===
+                createHash("sha256").update(x.p.text).digest("hex"),
+          )
+        : undefined;
+    return {
+      citation,
+      text: x.p.text.slice(0, 5500),
+      ...(english
+        ? {
+            englishTranslation: {
+              text: english.text.slice(0, 5500),
+              notes: english.notes,
+              status:
+                "Unofficial AI translation; unreviewed. Japanese source takes precedence.",
+            },
+          }
+        : {}),
+    };
   });
 }

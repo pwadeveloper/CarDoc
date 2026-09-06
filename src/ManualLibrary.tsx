@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TranslatedManual } from "./TranslatedManual";
 import { BookOpen, ExternalLink, ArrowUpRight } from "lucide-react";
 import {
   manuals,
@@ -25,6 +26,7 @@ export function ManualLibrary({
   );
   return (
     <>
+      <TranslatedManual />
       <section className="panel factory-library">
         <div className="section-head">
           <div>

@@ -21,14 +21,20 @@ for (const manual of manuals) {
   try {
     bytes = await fs.readFile(file);
   } catch {
-    const response = await fetch(manual.url, {
-      signal: AbortSignal.timeout(60000),
-    });
-    if (!response.ok)
-      throw new Error(`Manual download failed: ${response.status}`);
-    bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.subarray(0, 5).toString() !== "%PDF-")
-      throw new Error("Expected PDF");
+    try {
+      bytes = await fs.readFile(
+        path.join(root, "knowledge/sources", manual.file),
+      );
+    } catch {
+      const response = await fetch(manual.url, {
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!response.ok)
+        throw new Error(`Manual download failed: ${response.status}`);
+      bytes = Buffer.from(await response.arrayBuffer());
+      if (bytes.subarray(0, 5).toString() !== "%PDF-")
+        throw new Error("Expected PDF");
+    }
     await fs.writeFile(file, bytes);
   }
   const sha256 = createHash("sha256").update(bytes).digest("hex");

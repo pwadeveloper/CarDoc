@@ -10,7 +10,8 @@
     "test": "vitest run",
     "prebuild": "node scripts/prepare-manuals.mjs",
     "pretest": "node scripts/prepare-manuals.mjs",
-    "predev": "node scripts/prepare-manuals.mjs"
+    "predev": "node scripts/prepare-manuals.mjs",
+    "translate:manual": "node scripts/translate-manual.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.577.0",
@@ -19,6 +20,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.8",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
     "@types/node": "^26.4.1",

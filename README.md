@@ -110,3 +110,50 @@ OM53A87U, hosted by Car Manuals Online. It is a North American reference, not
 a translation of the Japan-market edition. Equipment and specifications may
 vary. The English PDF is not bundled because its download hosts rejected
 access; AI retrieval continues to use the downloaded Japanese Lexus originals.
+
+### Translation of the uploaded Japan-market manual
+
+`knowledge/sources/is250-jp-early.pdf` is the user-supplied, hash-verified
+336-page M53A85 original. `knowledge/translations/jp-early.en.json` stores
+English translations with PDF page numbers, source text hashes, provenance,
+review status and translation notes. The initial three translated pages are
+PDF 238–240 (printed 234–236); **333 pages remain untranslated**. These are
+unofficial AI translations, not Lexus-certified or independently reviewed.
+The English reader shows exact coverage and missing-page states, searches
+available English text and links to the original diagrams. The AI receives
+English alongside Japanese only when edition and source hashes match.
+
+To translate the remaining pages, configure a vision-capable OpenAI model
+with structured output support in the gitignored `.env`:
+
+```sh
+OPENAI_API_KEY=your-key
+CARDOC_TRANSLATION_MODEL=your-model-id
+```
+
+Then run:
+
+```sh
+npm run prebuild
+npm run translate:manual -- --check   # coverage only; no API request
+npm run translate:manual -- --limit 1 # optional one-page trial
+npm run translate:manual             # all remaining pages; uses paid API calls
+npm test
+npm run build
+```
+
+The runner sends each rendered Japanese page plus extracted text to OpenAI,
+requests a full translation including diagram labels, and saves each result
+atomically. Truncated, refused or self-reported incomplete responses stop the
+run without marking that page complete. Re-run after an error to resume.
+Generation is never part of normal builds or chat requests. It does not
+translate diagrams into new artwork; the original PDF preserves their visual
+geometry. Notes must be checked, especially tables, warnings and numerical
+specifications. Schema validation does not establish translation accuracy.
+
+A lock prevents simultaneous writers. If a process is forcibly terminated,
+remove `knowledge/translations/jp-early.en.json.lock` only after confirming no
+translation process is running. Completed JSON pages remain intact. Commit
+the updated translation JSON after review; this makes English pages available
+without requiring API calls to read them. The later Japanese edition is not
+included in this translation workflow.
