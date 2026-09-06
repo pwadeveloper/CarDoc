@@ -1,0 +1,24 @@
+[
+  {
+    "id": "jp-early",
+    "title": "Lexus IS 350 / IS 250 — Japan",
+    "edition": "July 2011–June 2012 production",
+    "code": "M53A85",
+    "language": "Japanese",
+    "pages": 336,
+    "url": "https://manual.lexus.jp/pdf/is/IS350-IS250_OM_JP_M53A85_1_1108.pdf",
+    "file": "is250-jp-early.pdf",
+    "sha256": "114972567e66fcdc4feb32a885139eca6044a5def75b7d735f4a4751131bd797"
+  },
+  {
+    "id": "jp-late",
+    "title": "Lexus IS 350 / IS 250 — Japan",
+    "edition": "July 2012–April 2013 production",
+    "code": "M53B60",
+    "language": "Japanese",
+    "pages": 340,
+    "url": "https://manual.lexus.jp/pdf/is/IS350-IS250_OM_JP_M53B60_1_1208.pdf",
+    "file": "is250-jp-late.pdf",
+    "sha256": "889d3cfc4e54ce6299dd498631ae7a4847bde7b3875a5ff18d37a1ae25f67aae"
+  }
+]

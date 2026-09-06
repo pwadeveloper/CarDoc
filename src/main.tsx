@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
@@ -31,23 +31,20 @@ import {
   type Part,
 } from "./data";
 import "./style.css";
-type Profile = {
-  market: string;
-  transmission: string;
-  mileage: string;
-  unit: string;
-  trim: string;
-  modifications: string;
-};
-const initialProfile: Profile = {
-  market: "Unconfirmed",
-  transmission: "6-speed automatic",
-  mileage: "171713",
-  unit: "Unconfirmed",
-  trim: "Unconfirmed",
-  modifications:
-    "Used in Nigeria; owned for 4 years. Original import market uncertain (Japan or United States).",
-};
+import { ManualLibrary } from "./ManualLibrary";
+import { loadProfile, reportedService } from "./profile";
+import {
+  loadConversation,
+  newConversation,
+  parseConversation,
+  message,
+  historyForAI,
+  followupQuery,
+  validCitations,
+  CHAT_KEY,
+  type ChatMessage,
+} from "./chat";
+import { topicCitations } from "./manuals";
 type Entry = {
   id: string;
   date: string;
@@ -74,9 +71,7 @@ function read<T>(key: string, fallback: T): T {
 }
 export function App() {
   const [page, setPage] = useState("Overview"),
-    [profile, setProfile] = useState(() =>
-      read("cardoc-profile", initialProfile),
-    ),
+    [profile, setProfile] = useState(() => loadProfile()),
     [edit, setEdit] = useState(false),
     [draft, setDraft] = useState(profile),
     [part, setPart] = useState<Part | null>(null),
@@ -88,21 +83,47 @@ export function App() {
     [article, setArticle] = useState<string | null>(null),
     [chatOpen, setChatOpen] = useState(false),
     [question, setQuestion] = useState(""),
-    [messages, setMessages] = useState<{ role: string; text: string }[]>([]),
+    [conversation, setConversation] = useState(loadConversation),
     [busy, setBusy] = useState(false),
     [ai, setAi] = useState(false),
-    [entries, setEntries] = useState<Entry[]>(() => read("cardoc-journal", [])),
+    [entries, setEntries] = useState<Entry[]>(() => {
+      const stored = read<Entry[]>("cardoc-journal", []);
+      const valid = stored.filter(
+        (e) =>
+          e &&
+          typeof e.id === "string" &&
+          typeof e.title === "string" &&
+          typeof e.date === "string" &&
+          typeof e.notes === "string",
+      );
+      let seeded = false;
+      try {
+        seeded =
+          window.localStorage.getItem("cardoc-service-report-v2") === "added";
+      } catch {}
+      if (!seeded && !valid.some((e) => e.id === reportedService.id))
+        return [reportedService, ...valid];
+      return valid;
+    }),
     [notice, setNotice] = useState("");
+  const messages = conversation.messages;
+  const chatBody = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (chatBody.current)
+      chatBody.current.scrollTop = chatBody.current.scrollHeight;
+  }, [messages, busy, chatOpen]);
   useEffect(() => {
     try {
       window.localStorage.setItem("cardoc-profile", JSON.stringify(profile));
       window.localStorage.setItem("cardoc-journal", JSON.stringify(entries));
+      window.localStorage.setItem("cardoc-service-report-v2", "added");
+      window.localStorage.setItem(CHAT_KEY, JSON.stringify(conversation));
     } catch {
       setNotice(
         "Browser storage is unavailable. Changes will last for this session only.",
       );
     }
-  }, [profile, entries]);
+  }, [profile, entries, conversation]);
   useEffect(() => {
     const esc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -135,10 +156,50 @@ export function App() {
     setArticle(null);
     setQuery("");
   }
+  function appendMessages(next: ChatMessage[]) {
+    setConversation((c) => ({
+      ...c,
+      updatedAt: new Date().toISOString(),
+      messages: [...c.messages, ...next].slice(-200),
+    }));
+  }
+  function exportChat() {
+    const blob = new Blob([JSON.stringify(conversation, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "cardoc-conversation.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function importChat(file: File | undefined) {
+    if (!file) return;
+    try {
+      if (file.size > 2000000) throw new Error("JSON file is too large");
+      const restored = parseConversation(JSON.parse(await file.text()));
+      if (
+        messages.length &&
+        !window.confirm(
+          "Replace the current saved conversation with this JSON file? Export first to keep a copy.",
+        )
+      )
+        return;
+      setConversation(restored);
+      setNotice("Conversation restored from JSON.");
+    } catch {
+      setNotice(
+        "Could not import that file. Use a valid CarDoc conversation JSON (up to 200 messages / 2 MB).",
+      );
+    }
+  }
   async function ask(q = question) {
     if (!q.trim() || busy) return;
     setQuestion("");
-    setMessages((m) => [...m, { role: "user", text: q }]);
+    const history = historyForAI(messages);
+    const contextual = followupQuery(q, messages);
+    appendMessages([message("user", q)]);
     setBusy(true);
     const found = extractCodes(q);
     if (found.length) {
@@ -146,22 +207,27 @@ export function App() {
       setPage("Diagnostics");
       setPart(null);
     }
-    let reply = answerQuestion(q);
+    let reply = answerQuestion(contextual);
+    let citations = topicCitations(contextual);
+    let source: "built-in" | "openai" = "built-in";
+    if (reply.startsWith("I don’t have") && citations.length)
+      reply =
+        "I found this topic in the official Japan-market owner manuals. Open the page references below for the factory instructions and illustrations. Enable the OpenAI connection for an English explanation grounded in those pages.";
     if (ai) {
       try {
         const res = await fetch("/api/ask", {
           method: "POST",
+          signal: AbortSignal.timeout(40000),
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             question: q,
-            context: reply,
+            history,
             vehicle: {
+              ...profile,
               year: 2012,
               model: "Lexus IS 250",
               engine: "4GR-FSE",
               drive: "RWD",
-              transmission: profile.transmission,
-              market: profile.market,
             },
           }),
         });
@@ -169,13 +235,15 @@ export function App() {
         const d = await res.json();
         if (typeof d.answer !== "string") throw new Error();
         reply = d.answer;
+        citations = validCitations(d.citations);
+        source = "openai";
       } catch {
         reply =
           "The optional AI connection is unavailable. Here is the built-in answer:\n\n" +
           reply;
       }
     }
-    setMessages((m) => [...m, { role: "assistant", text: reply }]);
+    appendMessages([message("assistant", reply, { source, citations })]);
     setBusy(false);
   }
   const filtered = articles.filter(
@@ -366,7 +434,7 @@ export function App() {
                       setEdit(true);
                     }}
                   >
-                    Complete your car’s profile <ArrowUpRight size={17} />
+                    Review your car’s profile <ArrowUpRight size={17} />
                   </button>
                 </div>
                 <div className="hero-art">
@@ -411,6 +479,21 @@ export function App() {
                       {chosen ? (
                         <div className="part-detail">
                           <h3>{chosen.name}</h3>
+                          <button
+                            className="text-link"
+                            onClick={() => {
+                              nav("Owner’s manual");
+                              setQuery(
+                                chosen.id === "battery"
+                                  ? "jump"
+                                  : chosen.id === "cooling"
+                                    ? "overheat"
+                                    : "engine bay",
+                              );
+                            }}
+                          >
+                            Factory illustrations <ArrowUpRight size={12} />
+                          </button>
                           <p>{chosen.description}</p>
                           <button
                             onClick={() => {
@@ -594,6 +677,21 @@ export function App() {
                   {chosen && (
                     <div className="part-detail">
                       <h3>{chosen.name}</h3>
+                      <button
+                        className="text-link"
+                        onClick={() => {
+                          nav("Owner’s manual");
+                          setQuery(
+                            chosen.id === "battery"
+                              ? "jump"
+                              : chosen.id === "cooling"
+                                ? "overheat"
+                                : "engine bay",
+                          );
+                        }}
+                      >
+                        Factory illustrations <ArrowUpRight size={12} />
+                      </button>
                       <p>{chosen.description}</p>
                     </div>
                   )}
@@ -684,6 +782,7 @@ export function App() {
           )}
           {page === "Owner’s manual" && (
             <>
+              <ManualLibrary query={query} />
               <div className="manual-toolbar">
                 <label className="search-box">
                   <Search size={20} />
@@ -727,8 +826,9 @@ export function App() {
                 ))}
               </div>
               <p className="muted">
-                A curated companion guide, not a complete factory repair manual.
-                Confirm market-specific specifications before maintenance.
+                Companion guides below complement the official PDFs above. The
+                AI can retrieve original manual pages; workshop repair
+                procedures remain a separate source.
               </p>
               <div className="manual-grid">
                 {filtered.map((a) => (
@@ -936,7 +1036,35 @@ export function App() {
               <X size={20} />
             </button>
           </div>
-          <div className="chat-body" aria-live="polite">
+          <div className="chat-tools">
+            <button onClick={exportChat} disabled={busy}>
+              Export JSON
+            </button>
+            <label>
+              Import JSON
+              <input
+                type="file"
+                accept="application/json,.json"
+                disabled={busy}
+                onChange={(e) => {
+                  void importChat(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <button
+              disabled={busy}
+              onClick={() => {
+                if (
+                  window.confirm("Clear the saved conversation on this device?")
+                )
+                  setConversation(newConversation());
+              }}
+            >
+              Clear chat
+            </button>
+          </div>
+          <div className="chat-body" ref={chatBody} aria-live="polite">
             {!messages.length && (
               <div className="chat-welcome">
                 <h2>What’s on your mind?</h2>
@@ -957,6 +1085,17 @@ export function App() {
               <div className={`message ${m.role}`} key={i}>
                 <small>{m.role === "user" ? "YOU" : "CARDOC"}</small>
                 <p>{m.text}</p>
+                {m.citations?.map((c) => (
+                  <a
+                    className="chat-citation"
+                    key={c.id}
+                    href={c.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    [{c.id}] {c.title} <ExternalLink size={11} />
+                  </a>
+                ))}
               </div>
             ))}
             {busy && <p role="status">Looking into that…</p>}
@@ -972,8 +1111,8 @@ export function App() {
             </label>
             <small>
               {ai
-                ? "Questions are sent to the configured AI provider."
-                : "Built-in answers · no AI API key needed"}
+                ? "Sends this question + up to 12 previous messages to OpenAI."
+                : "Saved locally as JSON · latest 200 messages · no AI key needed"}
             </small>
             <form
               onSubmit={(e) => {
@@ -1114,6 +1253,31 @@ export function App() {
                   </select>
                 </label>
               </div>
+              <label>
+                Manual production period
+                <select
+                  value={draft.buildPeriod}
+                  onChange={(e) =>
+                    setDraft({ ...draft, buildPeriod: e.target.value })
+                  }
+                >
+                  <option value="unknown">
+                    Unconfirmed — keep both editions available
+                  </option>
+                  <option value="jp-early">July 2011–June 2012</option>
+                  <option value="jp-late">July 2012–April 2013</option>
+                </select>
+              </label>
+              <label>
+                Last service date (approximate owner report)
+                <input
+                  type="date"
+                  value={draft.lastServiceDate}
+                  onChange={(e) =>
+                    setDraft({ ...draft, lastServiceDate: e.target.value })
+                  }
+                />
+              </label>
               <label>
                 Trim / package
                 <input

@@ -7,10 +7,14 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prebuild": "node scripts/prepare-manuals.mjs",
+    "pretest": "node scripts/prepare-manuals.mjs",
+    "predev": "node scripts/prepare-manuals.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.577.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

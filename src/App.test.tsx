@@ -89,3 +89,63 @@ describe("owner workflows", () => {
     expect(screen.getByText(/Use the cold tire pressures/)).toBeTruthy();
   });
 });
+describe("persistent knowledge workflows", () => {
+  it("restores chat after remount and sends previous turns with follow-ups", async () => {
+    const u = userEvent.setup();
+    const mock = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ answer: "Follow-up answer", citations: [] }),
+      });
+    vi.stubGlobal("fetch", mock);
+    render(<App />);
+    await u.click(screen.getByRole("button", { name: "Ask a question" }));
+    await u.click(screen.getByText("What does P0301 mean?"));
+    await screen.findByText(/These are possible causes/);
+    cleanup();
+    render(<App />);
+    await u.click(screen.getByRole("button", { name: "Ask a question" }));
+    expect(screen.getByText(/These are possible causes/)).toBeTruthy();
+    await u.click(screen.getByLabelText("Use optional AI connection"));
+    await u.type(
+      screen.getByLabelText("Your question"),
+      "What should I do about it?",
+    );
+    await u.click(screen.getByLabelText("Send question"));
+    await screen.findByText("Follow-up answer");
+    const payload = JSON.parse(mock.mock.calls[0][1].body);
+    expect(payload.history).toHaveLength(2);
+    expect(payload.history[0].content).toBe("What does P0301 mean?");
+    expect(payload.vehicle.unit).toBe("mi");
+    vi.unstubAllGlobals();
+  });
+  it("opens the correct factory diagram page for each edition", async () => {
+    const u = userEvent.setup();
+    render(<App />);
+    await u.click(screen.getByRole("button", { name: "Owner’s manual" }));
+    await u.click(screen.getByRole("button", { name: "Fuse boxes p. 246" }));
+    expect(document.querySelector("object")?.getAttribute("data")).toContain(
+      "is250-jp-early.pdf#page=250",
+    );
+    await u.selectOptions(screen.getByLabelText("Manual edition"), "jp-late");
+    expect(document.querySelector("object")?.getAttribute("data")).toContain(
+      "is250-jp-late.pdf#page=253",
+    );
+  });
+  it("adds an approximate service report once without inventing work", async () => {
+    const u = userEvent.setup();
+    render(<App />);
+    await u.click(screen.getByRole("button", { name: "Service journal" }));
+    expect(screen.getAllByText("Service — owner reported")).toHaveLength(1);
+    expect(
+      screen.getByText(
+        /Work performed, parts replaced and odometer at service were not specified/,
+      ),
+    ).toBeTruthy();
+    cleanup();
+    render(<App />);
+    await u.click(screen.getByRole("button", { name: "Service journal" }));
+    expect(screen.getAllByText("Service — owner reported")).toHaveLength(1);
+  });
+});

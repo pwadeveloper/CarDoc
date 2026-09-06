@@ -4,3 +4,5 @@ dist/
 !.env.example
 .vercel/
 *.tsbuildinfo
+public/manuals/
+server/generated/

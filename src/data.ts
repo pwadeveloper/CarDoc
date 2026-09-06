@@ -4,8 +4,8 @@ export const sources = {
     url: "https://pressroom.lexus.com/2012-lexus-is-250-350-product-specs/",
   },
   manual: {
-    label: "Lexus · Owner manuals",
-    url: "https://www.lexus.com/My-Lexus/resources",
+    label: "Lexus Japan · Official IS manuals",
+    url: "https://manual.lexus.jp/is/",
   },
   service: {
     label: "Toyota / Lexus · Technical Information System",
@@ -231,6 +231,87 @@ export const diagnostics: Diagnostic[] = [
     ],
   },
 ];
+// Additional generic code meanings checked against Autel's published DTC reference.
+// Lettered coils are intentionally not equated to physical cylinder positions.
+diagnostics.push(
+  ...Array.from({ length: 6 }, (_, i): Diagnostic => ({
+    code: `P035${i + 1}`,
+    title: `Ignition coil ${String.fromCharCode(65 + i)} circuit fault`,
+    parts: ["engine"],
+    severity: "Urgent if symptomatic",
+    meaning:
+      "The ignition-coil circuit monitor detected an electrical fault. This does not distinguish the coil from its wiring or control circuit.",
+    causes: [
+      "Coil circuit or connector fault",
+      "Power, ground or control wiring issue",
+    ],
+    checks: [
+      "Save all codes and freeze-frame data. Stop safely if the engine shakes severely or the warning flashes.",
+      "Use Lexus service information to identify the lettered circuit; do not assume a physical cylinder position.",
+      "Have the circuit tested before replacing a coil.",
+    ],
+  })),
+  ...Array.from({ length: 6 }, (_, i): Diagnostic => ({
+    code: `P020${i + 1}`,
+    title: `Cylinder ${i + 1} injector circuit fault`,
+    parts: ["fuel", "engine"],
+    severity: "Urgent if symptomatic",
+    meaning:
+      "The injector circuit monitor detected a fault. Electrical tests are needed to separate an injector problem from wiring or control faults.",
+    causes: [
+      "Injector electrical fault",
+      "Connector, harness or driver circuit issue",
+    ],
+    checks: [
+      "Record companion codes and the operating conditions.",
+      "Stop safely for severe misfire or a strong fuel smell.",
+      "Have a qualified technician test the direct-injection system; do not loosen high-pressure fuel lines.",
+    ],
+  })),
+  ...["P0172", "P0175"].map((code, i): Diagnostic => ({
+    code,
+    title: `Rich mixture detected · bank ${i + 1}`,
+    parts: ["fuel", "intake", "engine"],
+    severity: "Check soon",
+    meaning:
+      "Fuel-trim monitoring detected a rich condition. The reported bank is a diagnostic identifier, not a verified component location.",
+    causes: [
+      "Fuel delivery or injector issue",
+      "Air-measurement or sensor issue",
+    ],
+    checks: [
+      "Keep freeze-frame and companion codes.",
+      "Have fuel trims, airflow and fueling checked together.",
+      "Do not replace a sensor solely from this code.",
+    ],
+  })),
+  {
+    code: "P0441",
+    title: "EVAP purge flow outside expected range",
+    parts: ["fuel"],
+    severity: "Check soon",
+    meaning: "The vapor-purge monitor detected unexpected flow.",
+    causes: ["Purge valve or hose issue", "Flow measurement or control fault"],
+    checks: [
+      "Record all EVAP codes.",
+      "Arrange testing of purge operation and vapor lines.",
+      "Stop safely if there is a strong fuel smell.",
+    ],
+  },
+  {
+    code: "P0446",
+    title: "EVAP vent control circuit fault",
+    parts: ["fuel"],
+    severity: "Check soon",
+    meaning: "The EVAP vent-control monitor detected a circuit fault.",
+    causes: ["Vent control circuit or connector issue", "Valve fault"],
+    checks: [
+      "Record codes before clearing.",
+      "Have the vent circuit and valve checked using the applicable Lexus procedure.",
+      "Do not assume a loose fuel cap explains a circuit code.",
+    ],
+  },
+);
 export function extractCodes(text: string) {
   return [
     ...new Set(text.toUpperCase().match(/\b[PBCU][0-3][0-9A-F]{3}\b/g) || []),

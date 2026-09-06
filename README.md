@@ -1,74 +1,104 @@
 # CarDoc
 
-An interactive companion manual for a **2012 Lexus IS 250 RWD**, built with React, TypeScript and Vite. A restrained green dashboard pairs an original sedan illustration with an interactive system diagram.
+Interactive companion for a **2012 Lexus IS 250 RWD**, using React, TypeScript and Vite.
 
-## What works
+## Features
 
-- Eight keyboard-accessible system hotspots with explanatory details.
-- Multi-code lookup for 15 generic OBD-II codes: P0300–P0306, P0171, P0174, P0420, P0430, P0442, P0455, P0101 and P0128.
-- Related systems highlighted on the diagram, possible causes, next checks and condition-dependent urgency. Unknown codes do not invent a diagnosis.
-- Ten searchable, expandable companion guides with documentation links.
-- Built-in question answering for supported codes and manual topics. This is deterministic retrieval, not an LLM or a complete repair database.
-- Editable car configuration and service journal persisted in browser local storage. Records retain their original odometer unit when the profile unit changes.
-- Optional server-side AI endpoint, with clear fallback when unconfigured or unavailable.
-- Responsive desktop/mobile layout, reduced-motion support, accessible forms and dialog keyboard handling.
+- Eight interactive system hotspots and original conceptual car illustrations.
+- **31 generic OBD-II code entries**, including misfire, lean/rich mixture, catalyst, EVAP, airflow, cooling, ignition-coil and injector-circuit codes. Highlighting identifies systems to investigate, never a confirmed repair or unverified cylinder location.
+- Ten companion guides plus **40 English topic shortcuts into official Lexus Japan PDFs**.
+- Downloadable original owner manuals, an embedded PDF viewer, factory illustrations and links with both printed and PDF page numbers.
+- **676 indexed pages** across two production editions: 336 pages for July 2011–June 2012 and 340 pages for July 2012–April 2013.
+- OpenAI answers receive relevant original Japanese pages and recent conversation history. The prompt requests English explanations and page citations; citation links are validated against known manuals.
+- **Versioned JSON conversation storage**, export, import and clear. Restores previous chat on reload; saves the latest 200 messages locally. Only up to 12 recent messages / 24,000 characters enter an AI request.
+- Editable vehicle profile, local service journal, and migration of the previous unknown-market profile.
 
-## Vehicle configuration
+## Vehicle profile
 
-The supplied VIN decoded cleanly through NHTSA vPIC as a 2012 Lexus IS sedan, Japan-built, 2.5L 4GR-FSE, 4x2. The owner confirmed RWD, automatic transmission, an odometer reading of 171,713, use in Nigeria and four years of ownership. **Odometer units and original sales market remain unconfirmed.** Build country does not establish sales market. The full VIN is deliberately absent from the source, browser defaults and Git history.
+Owner-reported: Japan market, six-speed automatic, RWD, 171,713 **miles**, standard equipment, used in Nigeria, owned for four years. The last service was reported as “two weeks ago” on September 6, 2026: **approximately August 23, 2026**. Work performed, parts changed and mileage at service are unspecified. No overdue-maintenance calculation is inferred from that date.
 
-The profile is a snapshot, not live vehicle telemetry. The app does not connect directly to a scanner. Enter scanner codes manually. There is no maintenance-due calculation without a verified market schedule and service history.
+The VIN decoder established a 2012 Lexus IS sedan, 2.5L 4GR-FSE, Japan build country and 4x2. Japan sales market is an owner report, not a VIN-verified conclusion. The full VIN is absent from source and default storage. Exact production month remains unknown, so both manual editions are available. Select a period in Vehicle details when confirmed from the build label.
 
-## Run
+## Run and validate
 
-Requires Node 22.12+ (Node 24 LTS recommended).
+Requires Node **22.13+**, with Node 24 LTS used in CI.
 
 ```sh
 npm ci
 npm run dev
-```
-
-Open the local URL printed by Vite. No credentials are needed for the built-in features.
-
-```sh
 npm test
 npm run build
 npm run preview
 ```
 
-## Hosting and optional AI
+Before dev, tests or builds, `scripts/prepare-manuals.mjs` downloads the two official PDFs if needed, verifies pinned SHA-256 hashes and page counts, then extracts Japanese text with PDF.js CMaps. Failed downloads or changed documents fail the preparation step rather than silently using corrupt content. Subsequent runs use cached PDFs and the index.
 
-The static `dist/` output can be hosted on a normal static host. On a subpath, set Vite's `base` option accordingly. The optional API requires a serverless host; it does not run under plain `vite dev` or static hosting.
+Generated files are ignored by Git:
 
-For Vercel, import this repository, use the Vite preset, build with `npm run build`, and publish `dist`. `api/ask.ts` becomes a serverless endpoint. For local full-stack testing, use `vercel dev` after connecting the project.
+- `public/manuals/`: original PDFs, copied into `dist/manuals/` for viewing and downloading.
+- `server/generated/manual-pages.json`: complete page text, imported **only on the server**, never into the browser JavaScript bundle.
 
-To enable optional AI, set these **server-side** variables in the hosting dashboard:
+A fresh checkout needs internet access on its first preparation run. The build includes original Lexus documents; copyright remains with Lexus. The repository contains source URLs and hashes, not PDF binaries or full extracted manual text.
 
-- `OPENAI_API_KEY`: your API credential.
-- `CARDOC_AI_MODEL`: a model available to your account that supports Chat Completions and `max_completion_tokens`.
+## OpenAI setup
 
-Do not use `VITE_` prefixes for secrets. `.env.example` is a template; actual environment files are ignored. Enable the “Use optional AI connection” checkbox inside Ask CarDoc. This sends the current question, retrieved guide and non-VIN vehicle configuration to the configured provider. Chat history is not sent or persisted. Failure returns the built-in answer.
+Copy `.env.example` to `.env.local` for local development, or set server environment variables on the host:
 
-Keep deployment access restricted when enabling a paid API: the endpoint includes input limits and cross-site browser checks, but no user authentication or durable rate limiting. Configure those at the hosting layer before making AI publicly accessible. Client-supplied context is treated as untrusted by the system prompt. AI output is plain text and cannot execute HTML or change the diagram's curated mappings.
+```dotenv
+OPENAI_API_KEY=your-server-side-key
+CARDOC_AI_MODEL=your-supported-chat-completions-model
+```
 
-## Knowledge scope and sources
+Use a model supporting Chat Completions and `max_completion_tokens`. Never prefix secrets with `VITE_`. Restart the dev server after changing credentials. The Vite development server now handles `/api/ask`; `npm run preview` is static and does not run the API.
 
-This is an original companion guide, **not a reproduction of the factory owner's manual or a VIN-specific workshop repair manual**. No factory artwork is redistributed. The diagrams are original conceptual illustrations, not dimensionally accurate component locations, bank assignments or cylinder-numbering diagrams. Highlighted systems are areas to investigate, not confirmed failed parts. Exact repair procedures, wiring, torque values, fluid specifications and service intervals require the appropriate Lexus information.
+For Vercel, use the Vite preset, `npm run build`, and output `dist`; `api/ask.ts` supplies the serverless endpoint. Other static hosts support the manual, built-in Q&A and JSON persistence, but need a separate backend for OpenAI. Paths currently assume hosting at `/`.
 
-References checked on September 6, 2026:
+Enable “Use optional AI connection” inside Ask CarDoc. The server retrieves source pages itself, ignoring client-supplied document context. Requests include the latest question, bounded previous turns and non-VIN vehicle fields. The application does not automatically upload chat JSON files to OpenAI; imported history enters requests only when AI is enabled. Network or provider failures display a labeled built-in fallback.
 
-- [Lexus 2012 IS product information](https://pressroom.lexus.com/2012-lexus-is-250-350-product-specs/) — model reference.
-- [Lexus 2012 IS press release](https://pressroom.lexus.com/?generate_pdf=54559) — engine and drivetrain context.
-- [NHTSA VIN decoder](https://www.nhtsa.gov/vin-decoder) — vehicle identity. No VIN is stored here.
-- [Autel scanner manual / DTC definitions](https://www.autel.com/u/cms/www/201910/151158279dbd.pdf) — generic code meanings, not Lexus-specific repair instructions.
-- [New Jersey MVC owner education](https://www.nj.gov/mvc/pdf/inspections/OwnerEdBroch.pdf) — common code interpretation and diagnostic context.
-- [Lexus owner resources](https://www.lexus.com/My-Lexus/resources) — owner-manual entry point; choose the correct year and market. Portal retrieval was not available during development.
-- [Toyota / Lexus Technical Information System](https://techinfo.toyota.com/) — factory service-information entry point; repair content can require paid access and has not been imported into this application.
+Before exposing a paid endpoint publicly, configure hosting authentication and durable rate limiting. Input limits and cross-site checks are not a substitute for access control. There is no cloud chat storage or user account system.
+
+## Conversation JSON
+
+The `cardoc-conversation-v1` local-storage key uses this structure:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "conversation-uuid",
+  "createdAt": "2026-09-06T12:00:00.000Z",
+  "updatedAt": "2026-09-06T12:01:00.000Z",
+  "messages": [
+    {
+      "id": "message-uuid",
+      "role": "user",
+      "text": "What does P0301 mean?",
+      "createdAt": "2026-09-06T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+Assistant messages also carry `source` (`built-in` or `openai`) and optional validated `citations`. Imports accept only supported versions, user/assistant roles, bounded message sizes and known manual citation URLs. Importing replaces the current chat after an in-app confirmation; export first to preserve it. Clearing browser storage removes local records; export is the backup mechanism. No API keys or VIN are added to exported metadata, though anything the user types remains in message text.
+
+## Sources and limits
+
+Verified September 6, 2026:
+
+- [Official Lexus Japan IS manual catalogue](https://manual.lexus.jp/is/) — production-period applicability.
+- [M53A85, July 2011–June 2012](https://manual.lexus.jp/pdf/is/IS350-IS250_OM_JP_M53A85_1_1108.pdf) — 336-page Japanese owner's manual.
+- [M53B60, July 2012–April 2013](https://manual.lexus.jp/pdf/is/IS350-IS250_OM_JP_M53B60_1_1208.pdf) — 340-page Japanese owner's manual.
+- [Autel DTC reference](https://www.autel.com/u/cms/www/201910/151158279dbd.pdf) — generic code definitions, including additional coil/injector and EVAP entries.
+- [Lexus 2012 IS product information](https://pressroom.lexus.com/2012-lexus-is-250-350-product-specs/) and [NHTSA VIN decoder](https://www.nhtsa.gov/vin-decoder) — model identity context.
+- [Toyota / Lexus TIS](https://techinfo.toyota.com/) — separate factory workshop information; not imported.
+
+Retrieval uses English topic keywords and Japanese text matching, selecting at most six pages. It is not a semantic vector search and may miss unusual phrasing. Built-in answers provide guides and page links, not automatic translations of the entire manual. OpenAI translation and generation still need checking. An index of every page does not guarantee an answer to every question.
+
+The official documents are **owner manuals**, not full workshop repair manuals, wiring books or complete DTC diagnostic trees. The navigation-system manual is separate. Optional equipment may be illustrated even when not fitted. Factory diagrams provide accurate references within their stated scope; the interactive top-view schematic remains approximate. No bank or cylinder layout was invented. Older U.S. misfire bulletins found during research were not imported as Japan-market 2012 instructions because their applicability did not match.
+
+No scan is assumed current. Enter the exact codes, module, symptoms and freeze-frame information when the next scan is available.
 
 ## Validation
 
-Tests cover extraction, unsupported-code behavior, system mappings, misfire guidance, bounded question answering, multi-code UI flows, profile and journal persistence, manual search, and optional API success/failure handling. The production build typechecks client and API code.
+Automated tests cover code mappings, unknown codes, profile migration, service-report seeding, saved chat restoration, JSON validation, bounded history, manual page retrieval, production-edition selection, PDF page links and API grounding. `npm run build` typechecks client and server code.
 
-The gstack browser could not launch in the development session because the macOS sandbox denied Chromium Mach-port registration. DOM interaction tests were used; real-browser visual verification remains outstanding. No live AI-provider call was made without credentials.
-
-Data stays on the device and can be lost if browser storage is cleared. No backend account, cloud sync or backup is provided.
+Original PDF illustrations were rendered and visually checked (hood release, jacking points and fuse boxes). Full real-browser UI visual verification remains blocked by the development sandbox's Chromium restrictions. Live OpenAI output has not been tested without credentials; mocked provider behavior and the unconfigured local endpoint are tested.
