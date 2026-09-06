@@ -102,3 +102,11 @@ No scan is assumed current. Enter the exact codes, module, symptoms and freeze-f
 Automated tests cover code mappings, unknown codes, profile migration, service-report seeding, saved chat restoration, JSON validation, bounded history, manual page retrieval, production-edition selection, PDF page links and API grounding. `npm run build` typechecks client and server code.
 
 Original PDF illustrations were rendered and visually checked (hood release, jacking points and fuse boxes). Full real-browser UI visual verification remains blocked by the development sandbox's Chromium restrictions. Live OpenAI output has not been tested without credentials; mocked provider behavior and the unconfigured local endpoint are tested.
+
+### English owner’s manual
+
+The manual library links to the English 2012 IS 250 / IS 350 owner’s manual,
+OM53A87U, hosted by Car Manuals Online. It is a North American reference, not
+a translation of the Japan-market edition. Equipment and specifications may
+vary. The English PDF is not bundled because its download hosts rejected
+access; AI retrieval continues to use the downloaded Japanese Lexus originals.
