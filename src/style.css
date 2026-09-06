@@ -444,6 +444,42 @@ small {
   background: #5f7748;
   margin-right: var(--s-2);
 }
+.local-dot.offline {
+  background: var(--ink-4);
+}
+/* Install prompt. Unlike .ask-nav this survives the tablet icon rail, because
+   installing matters most on the phone that collapses the sidebar. */
+.install-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  text-align: left;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  color: var(--green-700);
+  min-height: var(--tap);
+  padding: var(--s-3);
+  margin-top: var(--s-2);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--accent-surface);
+}
+.install-nav:hover {
+  background: var(--accent-surface-2);
+}
+/* Offline strip. Only rendered while the browser reports no connection. */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+  background: var(--accent-surface-2);
+  border-bottom: 1px solid var(--line-2);
+}
 .shell {
   margin-left: 244px;
   width: calc(100% - 244px);
@@ -2103,6 +2139,14 @@ textarea {
   .sidebar-bottom,
   .ask-nav {
     display: none;
+  }
+  .install-nav {
+    font-size: 0;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    width: var(--tap);
+    height: var(--tap);
   }
   .sidebar nav {
     margin-top: var(--s-7);

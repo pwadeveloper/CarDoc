@@ -10,6 +10,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { App } from "./main";
+import { PENDING_KEY, type Entry } from "./sync";
 beforeEach(() => window.localStorage.clear());
 afterEach(() => {
   cleanup();
@@ -92,12 +93,10 @@ describe("owner workflows", () => {
 describe("persistent knowledge workflows", () => {
   it("restores chat after remount and sends previous turns with follow-ups", async () => {
     const u = userEvent.setup();
-    const mock = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({ answer: "Follow-up answer", citations: [] }),
-      });
+    const mock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ answer: "Follow-up answer", citations: [] }),
+    });
     vi.stubGlobal("fetch", mock);
     render(<App />);
     await u.click(screen.getByRole("button", { name: "Ask a question" }));
@@ -149,5 +148,52 @@ describe("persistent knowledge workflows", () => {
     render(<App />);
     await u.click(screen.getByRole("button", { name: "Service journal" }));
     expect(screen.getAllByText("Service — owner reported")).toHaveLength(1);
+  });
+});
+
+describe("offline-first behaviour", () => {
+  it("tells the owner the app still works when the browser goes offline", async () => {
+    render(<App />);
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent(window, new Event("offline"));
+    expect((await screen.findByRole("status")).textContent).toMatch(
+      /^Offline\./,
+    );
+    fireEvent(window, new Event("online"));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  });
+
+  it("pushes a journal written offline as soon as the connection returns", async () => {
+    const u = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
+    render(<App />);
+    await u.click(screen.getByRole("button", { name: "Service journal" }));
+    await u.type(screen.getByLabelText("Work performed"), "Coolant flush");
+    fireEvent.change(screen.getByLabelText("Date"), {
+      target: { value: "2026-09-06" },
+    });
+    await u.click(screen.getByText("Save entry"));
+    // The entry is on the device and the badge admits it has not left yet.
+    expect(await screen.findByText(/syncs when online/)).toBeTruthy();
+    expect(window.localStorage.getItem(PENDING_KEY)).toContain("Coolant flush");
+
+    const online = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, updatedAt: "2026-09-06T00:00:00Z" }),
+    });
+    vi.stubGlobal("fetch", online);
+    fireEvent(window, new Event("online"));
+
+    await waitFor(() =>
+      expect(window.localStorage.getItem(PENDING_KEY)).toBeNull(),
+    );
+    const body = JSON.parse(
+      online.mock.calls.find((c) => c[0] === "/api/journal")![1].body,
+    );
+    expect(body.entries.some((e: Entry) => e.title === "Coolant flush")).toBe(
+      true,
+    );
+    expect(await screen.findByText("Vercel Blob synced")).toBeTruthy();
   });
 });

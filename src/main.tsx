@@ -11,6 +11,9 @@ import {
   CircleHelp,
   ClipboardList,
   Cloud,
+  CloudOff,
+  CloudUpload,
+  Download,
   ExternalLink,
   LayoutDashboard,
   Plus,
@@ -50,9 +53,42 @@ import { topicCitations } from "./manuals";
 import {
   type Entry,
   type SyncStatus,
+  type SaveResult,
   fetchCloudJournal,
   saveCloudJournal,
+  flushPendingJournal,
+  hasPendingJournal,
 } from "./sync";
+import { PAGES, pageFromUrl, type Page } from "./manifest";
+// `beforeinstallprompt` is Chromium-only and still absent from the DOM types.
+// Safari has no equivalent; there the install button stays hidden and the user
+// installs through Share → Add to Home Screen.
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+function statusFor(res: SaveResult): SyncStatus {
+  if (res.ok) return "synced";
+  return res.pending ? "pending" : "offline";
+}
+const syncBadges: Record<
+  SyncStatus,
+  { Icon: typeof Cloud; label: string; spin?: boolean }
+> = {
+  idle: { Icon: Cloud, label: "Cloud storage ready" },
+  syncing: { Icon: RefreshCw, label: "Syncing to Blob…", spin: true },
+  synced: { Icon: Cloud, label: "Vercel Blob synced" },
+  pending: { Icon: CloudUpload, label: "Saved here — syncs when online" },
+  offline: { Icon: CloudOff, label: "Saved locally" },
+  error: { Icon: CloudOff, label: "Saved locally" },
+};
+const pageIcons: Record<Page, typeof Activity> = {
+  Overview: LayoutDashboard,
+  "Explore your car": CarFront,
+  Diagnostics: Activity,
+  "Owner’s manual": BookOpen,
+  "Service journal": ClipboardList,
+};
 function read<T>(key: string, fallback: T): T {
   try {
     const v = JSON.parse(window.localStorage.getItem(key) || "null");
@@ -70,7 +106,9 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 export function App() {
-  const [page, setPage] = useState("Overview"),
+  const [page, setPage] = useState(() =>
+      pageFromUrl(typeof window === "undefined" ? "" : window.location.search),
+    ),
     [profile, setProfile] = useState(() => loadProfile()),
     [edit, setEdit] = useState(false),
     [draft, setDraft] = useState(profile),
@@ -106,14 +144,20 @@ export function App() {
       return valid;
     }),
     [notice, setNotice] = useState(""),
-    [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+    [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
+      hasPendingJournal() ? "pending" : "idle",
+    ),
+    [online, setOnline] = useState(
+      () => typeof navigator === "undefined" || navigator.onLine !== false,
+    ),
+    [installer, setInstaller] = useState<InstallPromptEvent | null>(null);
   const messages = conversation.messages;
   const chatBody = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let active = true;
     fetchCloudJournal().then((cloudData) => {
       if (!active || !cloudData) {
-        if (active) setSyncStatus("offline");
+        if (active) setSyncStatus(hasPendingJournal() ? "pending" : "offline");
         return;
       }
       if (cloudData.entries && cloudData.entries.length > 0) {
@@ -137,7 +181,7 @@ export function App() {
       } else if (entries.length > 0) {
         setSyncStatus("syncing");
         saveCloudJournal(entries, profile).then((res) => {
-          if (active) setSyncStatus(res.ok ? "synced" : "offline");
+          if (active) setSyncStatus(statusFor(res));
         });
       } else {
         setSyncStatus("synced");
@@ -145,6 +189,44 @@ export function App() {
     });
     return () => {
       active = false;
+    };
+  }, []);
+  // Connectivity. A journal written with no signal is queued in local storage,
+  // so reconnecting has to push it — otherwise the entry never leaves the
+  // device and "Saved locally" would be a permanent state.
+  useEffect(() => {
+    let active = true;
+    function goOnline() {
+      setOnline(true);
+      if (!hasPendingJournal()) return;
+      setSyncStatus("syncing");
+      flushPendingJournal().then((res) => {
+        if (active && res) setSyncStatus(statusFor(res));
+      });
+    }
+    function goOffline() {
+      setOnline(false);
+    }
+    function capture(e: Event) {
+      // Suppress Chrome's own mini-infobar so the in-app button is the single
+      // install affordance.
+      e.preventDefault();
+      setInstaller(e as InstallPromptEvent);
+    }
+    function installed() {
+      setInstaller(null);
+    }
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("beforeinstallprompt", capture);
+    window.addEventListener("appinstalled", installed);
+    if (navigator.onLine !== false && hasPendingJournal()) goOnline();
+    return () => {
+      active = false;
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("beforeinstallprompt", capture);
+      window.removeEventListener("appinstalled", installed);
     };
   }, []);
   useEffect(() => {
@@ -192,7 +274,7 @@ export function App() {
     setPart(null);
     setPage("Diagnostics");
   }
-  function nav(p: string) {
+  function nav(p: Page) {
     setPage(p);
     setArticle(null);
     setQuery("");
@@ -329,32 +411,47 @@ export function App() {
         </button>
         <div className="workspace">WORKSPACE</div>
         <nav>
-          {[
-            ["Overview", LayoutDashboard],
-            ["Explore your car", CarFront],
-            ["Diagnostics", Activity],
-            ["Owner’s manual", BookOpen],
-            ["Service journal", ClipboardList],
-          ].map(([label, Icon]) => (
-            <button
-              key={label as string}
-              className={page === label ? "nav active" : "nav"}
-              title={label as string}
-              onClick={() => nav(label as string)}
-            >
-              <Icon size={18} />
-              {label as string}
-              {label === "Diagnostics" && codes.length > 0 && (
-                <span className="count">{codes.length}</span>
-              )}
-            </button>
-          ))}
+          {PAGES.map((label) => {
+            const Icon = pageIcons[label];
+            return (
+              <button
+                key={label}
+                className={page === label ? "nav active" : "nav"}
+                title={label}
+                onClick={() => nav(label)}
+              >
+                <Icon size={18} />
+                {label}
+                {label === "Diagnostics" && codes.length > 0 && (
+                  <span className="count">{codes.length}</span>
+                )}
+              </button>
+            );
+          })}
         </nav>
         <button className="ask-nav" onClick={() => setChatOpen(true)}>
           <Sparkles size={18} />
           Ask CarDoc
           <ArrowUpRight size={16} />
         </button>
+        {installer && (
+          <button
+            className="install-nav"
+            onClick={async () => {
+              const event = installer;
+              // The prompt is single-use: whatever the choice, this event
+              // cannot be replayed, so drop it either way.
+              setInstaller(null);
+              await event.prompt();
+              const { outcome } = await event.userChoice;
+              if (outcome === "accepted")
+                setNotice("CarDoc installed. It now works without a signal.");
+            }}
+          >
+            <Download size={18} />
+            Install app
+          </button>
+        )}
         <div className="sidebar-bottom">
           <div className="small-logo">
             <ShieldCheck size={20} />
@@ -364,10 +461,18 @@ export function App() {
             <br />A better drive.
           </strong>
           <p>Your car companion, wherever the road takes you.</p>
-          <span className="local-dot" /> Saved on this device
+          <span className={online ? "local-dot" : "local-dot offline"} />
+          {online ? "Saved on this device" : "Offline — everything still works"}
         </div>
       </aside>
       <div className="shell" inert={edit}>
+        {!online && (
+          <div className="offline-banner" role="status">
+            <CloudOff size={14} />
+            Offline. Your manuals, codes and journal still work; AI answers and
+            cloud sync resume when you reconnect.
+          </div>
+        )}
         <header>
           <div className="breadcrumb">
             My garage <ChevronRight size={14} /> <span>Lexus IS 250</span>
@@ -945,7 +1050,7 @@ export function App() {
                   setNotice("Service entry saved on this device.");
                   setSyncStatus("syncing");
                   saveCloudJournal(updated, profile).then((res) => {
-                    setSyncStatus(res.ok ? "synced" : "offline");
+                    setSyncStatus(statusFor(res));
                   });
                 }}
               >
@@ -998,27 +1103,15 @@ export function App() {
                 <div className="journal-header-row">
                   <h3>Service history ({entries.length})</h3>
                   <div className={`sync-badge ${syncStatus}`}>
-                    {syncStatus === "syncing" ? (
-                      <>
-                        <RefreshCw size={12} className="spin" />
-                        <span>Syncing to Blob…</span>
-                      </>
-                    ) : syncStatus === "synced" ? (
-                      <>
-                        <Cloud size={12} />
-                        <span>Vercel Blob synced</span>
-                      </>
-                    ) : syncStatus === "offline" ? (
-                      <>
-                        <Cloud size={12} />
-                        <span>Saved locally</span>
-                      </>
-                    ) : (
-                      <>
-                        <Cloud size={12} />
-                        <span>Cloud storage ready</span>
-                      </>
-                    )}
+                    {(() => {
+                      const { Icon, label, spin } = syncBadges[syncStatus];
+                      return (
+                        <>
+                          <Icon size={12} className={spin ? "spin" : ""} />
+                          <span>{label}</span>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 {entries.length === 0 ? (
@@ -1054,7 +1147,7 @@ export function App() {
                             setEntries(updated);
                             setSyncStatus("syncing");
                             saveCloudJournal(updated, profile).then((res) => {
-                              setSyncStatus(res.ok ? "synced" : "offline");
+                              setSyncStatus(statusFor(res));
                             });
                           }
                         }}

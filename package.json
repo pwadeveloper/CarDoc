@@ -11,7 +11,8 @@
     "prebuild": "node scripts/prepare-manuals.mjs",
     "pretest": "node scripts/prepare-manuals.mjs",
     "predev": "node scripts/prepare-manuals.mjs",
-    "translate:manual": "node scripts/translate-manual.mjs"
+    "translate:manual": "node scripts/translate-manual.mjs",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
@@ -32,6 +33,7 @@
     "prettier": "^3.9.6",
     "typescript": "^5.9.0",
     "vite": "^7.3.0",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^3.2.0"
   }
 }
