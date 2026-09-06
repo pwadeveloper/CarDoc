@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import handler from "./api/ask";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  for (const key of ["OPENAI_API_KEY", "CARDOC_AI_MODEL"])
+  for (const key of ["GEMINI_API_KEY", "OPENAI_API_KEY", "CARDOC_AI_MODEL"])
     if (env[key]) process.env[key] = env[key];
   return {
     plugins: [

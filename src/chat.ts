@@ -4,7 +4,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   text: string;
   createdAt: string;
-  source?: "built-in" | "openai";
+  source?: "built-in" | "openai" | "gemini";
   citations?: Citation[];
 };
 export type Conversation = {
@@ -43,6 +43,15 @@ export function validCitations(value: unknown): Citation[] {
   return value
     .filter((c): c is Citation => {
       if (!c || typeof c !== "object") return false;
+      if (c.manualId === "web") {
+        return (
+          typeof c.id === "string" &&
+          typeof c.title === "string" &&
+          c.title.length < 300 &&
+          typeof c.url === "string" &&
+          /^https?:\/\//.test(c.url)
+        );
+      }
       const m = manuals.find((m) => m.id === c.manualId);
       return (
         !!m &&
@@ -55,7 +64,7 @@ export function validCitations(value: unknown): Citation[] {
         c.url === `${m.url}#page=${c.page}`
       );
     })
-    .slice(0, 6);
+    .slice(0, 10);
 }
 export function parseConversation(input: unknown): Conversation {
   if (!input || typeof input !== "object")
@@ -88,7 +97,11 @@ export function parseConversation(input: unknown): Conversation {
       text: m.text,
       createdAt: m.createdAt,
       source:
-        m.source === "openai" ? ("openai" as const) : ("built-in" as const),
+        m.source === "gemini"
+          ? ("gemini" as const)
+          : m.source === "openai"
+            ? ("openai" as const)
+            : ("built-in" as const),
       citations: validCitations(m.citations),
     };
   });

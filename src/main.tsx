@@ -109,7 +109,9 @@ export function App() {
   const messages = conversation.messages;
   const chatBody = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (chatBody.current)
+    // Only chase the bottom once there is a transcript — pinning an empty
+    // panel to its scroll height clipped the welcome heading.
+    if (chatBody.current && messages.length)
       chatBody.current.scrollTop = chatBody.current.scrollHeight;
   }, [messages, busy, chatOpen]);
   useEffect(() => {
@@ -209,10 +211,10 @@ export function App() {
     }
     let reply = answerQuestion(contextual);
     let citations = topicCitations(contextual);
-    let source: "built-in" | "openai" = "built-in";
+    let source: "built-in" | "openai" | "gemini" = "built-in";
     if (reply.startsWith("I don’t have") && citations.length)
       reply =
-        "I found this topic in the official Japan-market owner manuals. Open the page references below for the factory instructions and illustrations. Enable the OpenAI connection for an English explanation grounded in those pages.";
+        "I found this topic in the official Japan-market owner manuals. Open the page references below for the factory instructions and illustrations. Enable the AI connection for an English explanation grounded in those pages.";
     if (ai) {
       try {
         const res = await fetch("/api/ask", {
@@ -236,7 +238,7 @@ export function App() {
         if (typeof d.answer !== "string") throw new Error();
         reply = d.answer;
         citations = validCitations(d.citations);
-        source = "openai";
+        source = d.source === "openai" ? "openai" : "gemini";
       } catch {
         reply =
           "The optional AI connection is unavailable. Here is the built-in answer:\n\n" +
@@ -259,6 +261,7 @@ export function App() {
         <a
           href="#"
           className="brand"
+          aria-label="CarDoc — go to overview"
           onClick={(e) => {
             e.preventDefault();
             nav("Overview");
@@ -267,7 +270,8 @@ export function App() {
           <span className="brand-icon">
             <Activity size={23} />
           </span>
-          CarDoc<span className="brand-dot">.</span>
+          <span className="brand-text">CarDoc</span>
+          <span className="brand-dot">.</span>
         </a>
         <div className="workspace">YOUR GARAGE</div>
         <button
@@ -296,6 +300,7 @@ export function App() {
             <button
               key={label as string}
               className={page === label ? "nav active" : "nav"}
+              title={label as string}
               onClick={() => nav(label as string)}
             >
               <Icon size={18} />
@@ -521,8 +526,7 @@ export function App() {
                       <Activity size={23} />
                     </div>
                     <h2>
-                      A warning light?
-                      <br />
+                      A warning light? <br />
                       Let’s understand it.
                     </h2>
                     <p>
@@ -1111,7 +1115,7 @@ export function App() {
             </label>
             <small>
               {ai
-                ? "Sends this question + up to 12 previous messages to OpenAI."
+                ? "Sends this question + up to 12 previous messages to Google Gemini."
                 : "Saved locally as JSON · latest 200 messages · no AI key needed"}
             </small>
             <form

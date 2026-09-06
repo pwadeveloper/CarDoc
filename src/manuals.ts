@@ -275,7 +275,7 @@ export function findTopics(query: string) {
 }
 export type Citation = {
   id: string;
-  manualId: ManualId;
+  manualId: ManualId | "web";
   page: number;
   title: string;
   url: string;

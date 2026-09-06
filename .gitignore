@@ -8,3 +8,4 @@ public/manuals/
 server/generated/
 knowledge/translations/*.tmp
 knowledge/translations/*.lock
+.gstack/

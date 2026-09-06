@@ -9,7 +9,7 @@ Interactive companion for a **2012 Lexus IS 250 RWD**, using React, TypeScript a
 - Ten companion guides plus **40 English topic shortcuts into official Lexus Japan PDFs**.
 - Downloadable original owner manuals, an embedded PDF viewer, factory illustrations and links with both printed and PDF page numbers.
 - **676 indexed pages** across two production editions: 336 pages for July 2011–June 2012 and 340 pages for July 2012–April 2013.
-- OpenAI answers receive relevant original Japanese pages and recent conversation history. The prompt requests English explanations and page citations; citation links are validated against known manuals.
+- AI answers (powered by Google Gemini or OpenAI) receive relevant original Japanese pages and recent conversation history. The prompt requests English explanations and page citations; citation links are validated against known manuals.
 - **Versioned JSON conversation storage**, export, import and clear. Restores previous chat on reload; saves the latest 200 messages locally. Only up to 12 recent messages / 24,000 characters enter an AI request.
 - Editable vehicle profile, local service journal, and migration of the previous unknown-market profile.
 
@@ -40,20 +40,26 @@ Generated files are ignored by Git:
 
 A fresh checkout needs internet access on its first preparation run. The build includes original Lexus documents; copyright remains with Lexus. The repository contains source URLs and hashes, not PDF binaries or full extracted manual text.
 
-## OpenAI setup
+## AI setup (Google Gemini / OpenAI)
 
 Copy `.env.example` to `.env.local` for local development, or set server environment variables on the host:
 
 ```dotenv
-OPENAI_API_KEY=your-server-side-key
-CARDOC_AI_MODEL=your-supported-chat-completions-model
+GEMINI_API_KEY=your-gemini-api-key
+CARDOC_AI_MODEL=gemini-3.8-flash
 ```
 
-Use a model supporting Chat Completions and `max_completion_tokens`. Never prefix secrets with `VITE_`. Restart the dev server after changing credentials. The Vite development server now handles `/api/ask`; `npm run preview` is static and does not run the API.
+Or for OpenAI:
+```dotenv
+OPENAI_API_KEY=your-server-side-key
+CARDOC_AI_MODEL=gpt-4o-mini
+```
 
-For Vercel, use the Vite preset, `npm run build`, and output `dist`; `api/ask.ts` supplies the serverless endpoint. Other static hosts support the manual, built-in Q&A and JSON persistence, but need a separate backend for OpenAI. Paths currently assume hosting at `/`.
+Never prefix secrets with `VITE_`. Restart the dev server after changing credentials. The Vite development server handles `/api/ask`; `npm run preview` is static and does not run the API.
 
-Enable “Use optional AI connection” inside Ask CarDoc. The server retrieves source pages itself, ignoring client-supplied document context. Requests include the latest question, bounded previous turns and non-VIN vehicle fields. The application does not automatically upload chat JSON files to OpenAI; imported history enters requests only when AI is enabled. Network or provider failures display a labeled built-in fallback.
+For Vercel, use the Vite preset, `npm run build`, and output `dist`; `api/ask.ts` supplies the serverless endpoint. Other static hosts support the manual, built-in Q&A and JSON persistence, but need a separate backend for AI. Paths currently assume hosting at `/`.
+
+Enable “Use optional AI connection” inside Ask CarDoc. The server retrieves source pages itself, ignoring client-supplied document context. Requests include the latest question, bounded previous turns and non-VIN vehicle fields. The application does not automatically upload chat JSON files to AI providers; imported history enters requests only when AI is enabled. Network or provider failures display a labeled built-in fallback.
 
 Before exposing a paid endpoint publicly, configure hosting authentication and durable rate limiting. Input limits and cross-site checks are not a substitute for access control. There is no cloud chat storage or user account system.
 
@@ -78,7 +84,7 @@ The `cardoc-conversation-v1` local-storage key uses this structure:
 }
 ```
 
-Assistant messages also carry `source` (`built-in` or `openai`) and optional validated `citations`. Imports accept only supported versions, user/assistant roles, bounded message sizes and known manual citation URLs. Importing replaces the current chat after an in-app confirmation; export first to preserve it. Clearing browser storage removes local records; export is the backup mechanism. No API keys or VIN are added to exported metadata, though anything the user types remains in message text.
+Assistant messages also carry `source` (`built-in`, `gemini`, or `openai`) and optional validated `citations`. Imports accept only supported versions, user/assistant roles, bounded message sizes and known manual citation URLs. Importing replaces the current chat after an in-app confirmation; export first to preserve it. Clearing browser storage removes local records; export is the backup mechanism. No API keys or VIN are added to exported metadata, though anything the user types remains in message text.
 
 ## Sources and limits
 
