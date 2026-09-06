@@ -1,8 +1,26 @@
 // @vitest-environment jsdom
 import React from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { afterEach, it, expect } from "vitest";
+import { afterEach, it, expect, vi } from "vitest";
 import { TranslatedManual } from "./TranslatedManual";
+// Keep a partial-corpus fixture even after the production translation is complete.
+vi.mock(
+  "../knowledge/translations/jp-early.en.json",
+  async (importOriginal) => {
+    const module =
+      await importOriginal<
+        typeof import("../knowledge/translations/jp-early.en.json")
+      >();
+    return {
+      default: {
+        ...module.default,
+        pages: module.default.pages.filter((p) =>
+          [238, 239, 240].includes(p.page),
+        ),
+      },
+    };
+  },
+);
 afterEach(cleanup);
 it("shows translated text, source link and an honest pending state", async () => {
   render(<TranslatedManual />);
