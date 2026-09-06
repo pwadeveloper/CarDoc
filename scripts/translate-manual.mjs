@@ -4,12 +4,8 @@ import path from "node:path";
 import { loadEnv } from "vite";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { createCanvas } from "@napi-rs/canvas";
-import {
-  digest,
-  validCachedPage,
-  buildRequest,
-  parseCompletion,
-} from "./translation-core.mjs";
+import { digest, validCachedPage } from "./translation-core.mjs";
+import { translationConfig, translatePage } from "./translation-provider.mjs";
 const root = path.resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(
   await fs.readFile(path.join(root, "knowledge/manuals.json"), "utf8"),
@@ -46,11 +42,9 @@ console.log(
 );
 if (process.argv.includes("--check") || !remaining.length) process.exit(0);
 const env = { ...loadEnv("development", root, ""), ...process.env };
-const model = env.CARDOC_TRANSLATION_MODEL || env.CARDOC_AI_MODEL;
-if (!env.OPENAI_API_KEY || !model)
-  throw new Error(
-    "Configure OPENAI_API_KEY and CARDOC_TRANSLATION_MODEL (or CARDOC_AI_MODEL) in .env. No API call made.",
-  );
+const config = translationConfig(env);
+const { model } = config;
+console.log(`Translating with ${config.provider} (${model}).`);
 const limitIndex = process.argv.indexOf("--limit");
 const limit =
   limitIndex < 0 ? remaining.length : Number(process.argv[limitIndex + 1]);
@@ -82,30 +76,16 @@ try {
     const imageUrl =
       "data:image/png;base64," +
       canvas.toBuffer("image/png").toString("base64");
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      signal: AbortSignal.timeout(180000),
-      headers: {
-        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(buildRequest(model, page, imageUrl)),
-    });
-    if (!response.ok)
-      throw new Error(
-        `OpenAI returned HTTP ${response.status}; completed pages are saved. Re-run to resume.`,
-      );
-    const data = await response.json();
-    const translation = parseCompletion(data);
+    const { translation, usage } = await translatePage(config, page, imageUrl);
     const entry = {
       page: page.page,
       sourceTextSha256: digest(page.text),
       ...translation,
-      method: "openai",
+      method: config.provider,
       model,
       translatedAt: new Date().toISOString(),
       reviewStatus: "unreviewed",
-      usage: data.usage || null,
+      usage,
     };
     document.pages = [
       ...document.pages.filter((p) => p.page !== page.page),

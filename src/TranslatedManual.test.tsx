@@ -7,10 +7,9 @@ import { TranslatedManual } from "./TranslatedManual";
 vi.mock(
   "../knowledge/translations/jp-early.en.json",
   async (importOriginal) => {
-    const module =
-      await importOriginal<
-        typeof import("../knowledge/translations/jp-early.en.json")
-      >();
+    const module = await importOriginal<{
+      default: typeof import("../knowledge/translations/jp-early.en.json");
+    }>();
     return {
       default: {
         ...module.default,

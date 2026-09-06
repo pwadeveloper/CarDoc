@@ -249,3 +249,16 @@ describe("history and grounding", () => {
     expect(out.citations[0].url).toMatch(/^https:\/\/manual.lexus.jp\//);
   });
 });
+
+it('supplies the internal English translation alongside Japanese to Gemini', async () => {
+  vi.stubEnv('GEMINI_API_KEY', 'test');
+  const mock = vi.fn().mockResolvedValue({ok:true,json:async()=>({candidates:[{content:{parts:[{text:'Read the floor-jack warning [S1].'}]}}]})});
+  vi.stubGlobal('fetch',mock);
+  const res=response();
+  await handler({method:'POST',headers:{},body:{question:'jacking',vehicle:{market:'Japan',buildPeriod:'jp-early'}}} as never,res as never);
+  expect(res.statusCode).toBe(200);
+  const payload=JSON.parse(mock.mock.calls[0][1].body);
+  expect(payload.systemInstruction.parts[0].text).toContain('englishTranslation');
+  expect(payload.systemInstruction.parts[0].text).toContain('FLOOR JACK');
+  expect(payload.systemInstruction.parts[0].text).toContain('ガレージジャッキ');
+});

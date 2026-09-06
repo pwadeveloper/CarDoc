@@ -129,12 +129,12 @@ The English reader shows exact coverage and missing-page states, searches
 available English text and links to the original diagrams. The AI receives
 English alongside Japanese only when edition and source hashes match.
 
-To translate the remaining pages, configure a vision-capable OpenAI model
+To translate the remaining pages, configure a vision-capable Gemini or OpenAI model
 with structured output support in the gitignored `.env`:
 
 ```sh
-OPENAI_API_KEY=your-key
-CARDOC_TRANSLATION_MODEL=your-model-id
+GEMINI_API_KEY=your-key
+CARDOC_TRANSLATION_MODEL=your-gemini-model-id
 ```
 
 Then run:
@@ -148,7 +148,7 @@ npm test
 npm run build
 ```
 
-The runner sends each rendered Japanese page plus extracted text to OpenAI,
+The runner sends each rendered Japanese page plus extracted text to the selected provider,
 requests a full translation including diagram labels, and saves each result
 atomically. Truncated, refused or self-reported incomplete responses stop the
 run without marking that page complete. Re-run after an error to resume.
@@ -163,3 +163,10 @@ translation process is running. Completed JSON pages remain intact. Commit
 the updated translation JSON after review; this makes English pages available
 without requiring API calls to read them. The later Japanese edition is not
 included in this translation workflow.
+
+Translation uses Gemini when `GEMINI_API_KEY` is present, matching chat.
+`CARDOC_TRANSLATION_MODEL` overrides the shared `CARDOC_AI_MODEL`. To use
+OpenAI explicitly when both keys exist, set `CARDOC_TRANSLATION_PROVIDER=openai`,
+`OPENAI_API_KEY` and an OpenAI `CARDOC_TRANSLATION_MODEL`. The runner does not
+use web search or silently switch providers after errors. Neither key is
+required to read the saved translations.
