@@ -10,9 +10,11 @@ import {
   ChevronRight,
   CircleHelp,
   ClipboardList,
+  Cloud,
   ExternalLink,
   LayoutDashboard,
   Plus,
+  RefreshCw,
   Search,
   Send,
   Settings2,
@@ -45,14 +47,12 @@ import {
   type ChatMessage,
 } from "./chat";
 import { topicCitations } from "./manuals";
-type Entry = {
-  id: string;
-  date: string;
-  mileage: string;
-  unit: string;
-  title: string;
-  notes: string;
-};
+import {
+  type Entry,
+  type SyncStatus,
+  fetchCloudJournal,
+  saveCloudJournal,
+} from "./sync";
 function read<T>(key: string, fallback: T): T {
   try {
     const v = JSON.parse(window.localStorage.getItem(key) || "null");
@@ -105,9 +105,48 @@ export function App() {
         return [reportedService, ...valid];
       return valid;
     }),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const messages = conversation.messages;
   const chatBody = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let active = true;
+    fetchCloudJournal().then((cloudData) => {
+      if (!active || !cloudData) {
+        if (active) setSyncStatus("offline");
+        return;
+      }
+      if (cloudData.entries && cloudData.entries.length > 0) {
+        setEntries((localEntries) => {
+          const cloudIds = new Set(cloudData.entries.map((e) => e.id));
+          const unsynced = localEntries.filter((e) => !cloudIds.has(e.id));
+          if (unsynced.length > 0) {
+            const merged = [...unsynced, ...cloudData.entries];
+            saveCloudJournal(merged, profile);
+            return merged;
+          }
+          return cloudData.entries;
+        });
+        if (cloudData.profile) {
+          setProfile((localProfile) => ({
+            ...localProfile,
+            ...cloudData.profile,
+          }));
+        }
+        setSyncStatus("synced");
+      } else if (entries.length > 0) {
+        setSyncStatus("syncing");
+        saveCloudJournal(entries, profile).then((res) => {
+          if (active) setSyncStatus(res.ok ? "synced" : "offline");
+        });
+      } else {
+        setSyncStatus("synced");
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
   useEffect(() => {
     // Only chase the bottom once there is a transcript — pinning an empty
     // panel to its scroll height clipped the welcome heading.
@@ -892,19 +931,22 @@ export function App() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   const f = new FormData(e.currentTarget);
-                  setEntries((v) => [
-                    {
-                      id: crypto.randomUUID(),
-                      date: String(f.get("date")),
-                      mileage: String(f.get("mileage")),
-                      unit: profile.unit,
-                      title: String(f.get("title")).trim(),
-                      notes: String(f.get("notes")).trim(),
-                    },
-                    ...v,
-                  ]);
+                  const newEntry: Entry = {
+                    id: crypto.randomUUID(),
+                    date: String(f.get("date")),
+                    mileage: String(f.get("mileage")),
+                    unit: profile.unit,
+                    title: String(f.get("title")).trim(),
+                    notes: String(f.get("notes")).trim(),
+                  };
+                  const updated = [newEntry, ...entries];
+                  setEntries(updated);
                   e.currentTarget.reset();
                   setNotice("Service entry saved on this device.");
+                  setSyncStatus("syncing");
+                  saveCloudJournal(updated, profile).then((res) => {
+                    setSyncStatus(res.ok ? "synced" : "offline");
+                  });
                 }}
               >
                 <h2>Add a service entry</h2>
@@ -953,6 +995,32 @@ export function App() {
                 </button>
               </form>
               <div>
+                <div className="journal-header-row">
+                  <h3>Service history ({entries.length})</h3>
+                  <div className={`sync-badge ${syncStatus}`}>
+                    {syncStatus === "syncing" ? (
+                      <>
+                        <RefreshCw size={12} className="spin" />
+                        <span>Syncing to Blob…</span>
+                      </>
+                    ) : syncStatus === "synced" ? (
+                      <>
+                        <Cloud size={12} />
+                        <span>Vercel Blob synced</span>
+                      </>
+                    ) : syncStatus === "offline" ? (
+                      <>
+                        <Cloud size={12} />
+                        <span>Saved locally</span>
+                      </>
+                    ) : (
+                      <>
+                        <Cloud size={12} />
+                        <span>Cloud storage ready</span>
+                      </>
+                    )}
+                  </div>
+                </div>
                 {entries.length === 0 ? (
                   <div className="panel empty">
                     <ClipboardList size={32} />
@@ -979,10 +1047,16 @@ export function App() {
                             window.confirm(
                               "Delete this service entry from this device?",
                             )
-                          )
-                            setEntries((v) =>
-                              v.filter((x) => x.id !== entry.id),
+                          ) {
+                            const updated = entries.filter(
+                              (x) => x.id !== entry.id,
                             );
+                            setEntries(updated);
+                            setSyncStatus("syncing");
+                            saveCloudJournal(updated, profile).then((res) => {
+                              setSyncStatus(res.ok ? "synced" : "offline");
+                            });
+                          }
                         }}
                       >
                         Delete entry
@@ -1189,6 +1263,11 @@ export function App() {
                 setProfile(draft);
                 setEdit(false);
                 setNotice("Vehicle profile saved on this device.");
+                saveCloudJournal(entries, draft)
+                  .then((res) => {
+                    if (res.ok) setSyncStatus("synced");
+                  })
+                  .catch(() => {});
               }}
             >
               <div className="form-row">

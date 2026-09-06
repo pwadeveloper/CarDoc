@@ -114,7 +114,9 @@ describe("persistent knowledge workflows", () => {
     );
     await u.click(screen.getByLabelText("Send question"));
     await screen.findByText("Follow-up answer");
-    const payload = JSON.parse(mock.mock.calls[0][1].body);
+    const askCall =
+      mock.mock.calls.find((c) => c[0] === "/api/ask") ?? mock.mock.calls[0];
+    const payload = JSON.parse(askCall[1].body);
     expect(payload.history).toHaveLength(2);
     expect(payload.history[0].content).toBe("What does P0301 mean?");
     expect(payload.vehicle.unit).toBe("mi");

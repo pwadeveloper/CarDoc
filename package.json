@@ -14,6 +14,7 @@
     "translate:manual": "node scripts/translate-manual.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "lucide-react": "^0.577.0",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.2.0",

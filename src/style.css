@@ -1644,6 +1644,54 @@ textarea {
   font-size: var(--fs-base);
   margin-bottom: var(--s-4);
 }
+.journal-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--s-4);
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.journal-header-row h3 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--ink-2);
+}
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  color: var(--ink-3);
+  transition: all 0.2s ease;
+}
+.sync-badge.synced {
+  color: var(--green-700);
+  background: var(--accent-surface);
+  border-color: var(--line-strong);
+}
+.sync-badge.syncing {
+  color: var(--ink);
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+}
+.spin {
+  animation: cardoc-spin 1.2s linear infinite;
+}
+@keyframes cardoc-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* ==========================================================================
    Chat panel
