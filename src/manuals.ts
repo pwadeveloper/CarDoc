@@ -1,4 +1,4 @@
-import manifest from "../knowledge/manuals.json";
+import manifest from "../knowledge/manuals.json" with { type: "json" };
 export const manuals = manifest;
 export type ManualId = "jp-early" | "jp-late";
 export type ManualTopic = {

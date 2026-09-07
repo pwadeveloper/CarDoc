@@ -1,6 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { answerQuestion } from "../src/data";
-import { retrievePages } from "../server/retrieval";
+// Relative imports carry the .js extension and JSON imports carry an import
+// attribute because Vercel ships this function as ESM ("type": "module") and
+// transpiles rather than bundles it. Node's ESM loader resolves neither an
+// extensionless specifier nor a bare JSON import, so both crash on deploy
+// while working fine under Vite.
+import { answerQuestion } from "../src/data.js";
+import { retrievePages } from "../server/retrieval.js";
 
 type Request = IncomingMessage & { body?: unknown };
 
@@ -18,7 +23,9 @@ export default async function handler(req: Request, res: ServerResponse) {
   }
 
   const hasGemini = Boolean(process.env.GEMINI_API_KEY);
-  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY && process.env.CARDOC_AI_MODEL);
+  const hasOpenAI = Boolean(
+    process.env.OPENAI_API_KEY && process.env.CARDOC_AI_MODEL,
+  );
 
   if (!hasGemini && !hasOpenAI) {
     return send(503, {
@@ -180,12 +187,15 @@ export default async function handler(req: Request, res: ServerResponse) {
       if (typeof answer !== "string" || answer.length > 12000)
         return send(502, { error: "Invalid AI response" });
 
-      const usedManual = new Set([...answer.matchAll(/\[(S\d+)\]/g)].map((m) => m[1]));
+      const usedManual = new Set(
+        [...answer.matchAll(/\[(S\d+)\]/g)].map((m) => m[1]),
+      );
       const manualCitations = pages
         .filter((p) => usedManual.has(p.citation.id))
         .map((p) => p.citation);
 
-      const webChunks = (candidate?.groundingMetadata?.groundingChunks || []) as Array<{
+      const webChunks = (candidate?.groundingMetadata?.groundingChunks ||
+        []) as Array<{
         web?: { uri?: string; title?: string };
       }>;
       const webCitations = webChunks

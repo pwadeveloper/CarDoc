@@ -65,7 +65,8 @@ export default async function handler(req: Request, res: ServerResponse) {
   const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
   if (!hasBlobToken) {
     return send(503, {
-      error: "Vercel Blob storage is not configured (missing BLOB_READ_WRITE_TOKEN).",
+      error:
+        "Vercel Blob storage is not configured (missing BLOB_READ_WRITE_TOKEN).",
     });
   }
 
@@ -96,7 +97,8 @@ export default async function handler(req: Request, res: ServerResponse) {
         exists: true,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to read storage";
+      const message =
+        err instanceof Error ? err.message : "Failed to read storage";
       return send(500, { error: message });
     }
   }
@@ -136,7 +138,8 @@ export default async function handler(req: Request, res: ServerResponse) {
         validEntries.push({
           id: e.id.trim().slice(0, 128),
           date: e.date.trim().slice(0, 32),
-          mileage: typeof e.mileage === "string" ? e.mileage.trim().slice(0, 32) : "",
+          mileage:
+            typeof e.mileage === "string" ? e.mileage.trim().slice(0, 32) : "",
           unit: typeof e.unit === "string" ? e.unit.trim().slice(0, 16) : "mi",
           title: e.title.trim().slice(0, 256),
           notes: e.notes.trim().slice(0, 10000),
@@ -147,15 +150,32 @@ export default async function handler(req: Request, res: ServerResponse) {
       if (body.profile && typeof body.profile === "object") {
         const p = body.profile as Record<string, unknown>;
         validProfile = {
-          market: typeof p.market === "string" ? p.market.slice(0, 64) : undefined,
-          transmission: typeof p.transmission === "string" ? p.transmission.slice(0, 64) : undefined,
-          mileage: typeof p.mileage === "string" ? p.mileage.slice(0, 32) : undefined,
+          market:
+            typeof p.market === "string" ? p.market.slice(0, 64) : undefined,
+          transmission:
+            typeof p.transmission === "string"
+              ? p.transmission.slice(0, 64)
+              : undefined,
+          mileage:
+            typeof p.mileage === "string" ? p.mileage.slice(0, 32) : undefined,
           unit: typeof p.unit === "string" ? p.unit.slice(0, 16) : undefined,
           trim: typeof p.trim === "string" ? p.trim.slice(0, 128) : undefined,
-          modifications: typeof p.modifications === "string" ? p.modifications.slice(0, 2000) : undefined,
-          lastServiceDate: typeof p.lastServiceDate === "string" ? p.lastServiceDate.slice(0, 32) : undefined,
-          buildPeriod: typeof p.buildPeriod === "string" ? p.buildPeriod.slice(0, 64) : undefined,
-          configurationRevision: typeof p.configurationRevision === "number" ? p.configurationRevision : undefined,
+          modifications:
+            typeof p.modifications === "string"
+              ? p.modifications.slice(0, 2000)
+              : undefined,
+          lastServiceDate:
+            typeof p.lastServiceDate === "string"
+              ? p.lastServiceDate.slice(0, 32)
+              : undefined,
+          buildPeriod:
+            typeof p.buildPeriod === "string"
+              ? p.buildPeriod.slice(0, 64)
+              : undefined,
+          configurationRevision:
+            typeof p.configurationRevision === "number"
+              ? p.configurationRevision
+              : undefined,
         };
       }
 
@@ -165,11 +185,19 @@ export default async function handler(req: Request, res: ServerResponse) {
         updatedAt: new Date().toISOString(),
       };
 
-      const putResult = await put(BLOB_PATHNAME, JSON.stringify(document, null, 2), {
-        access: "public",
-        addRandomSuffix: false,
-        contentType: "application/json",
-      });
+      // The journal lives at one stable pathname that every save replaces.
+      // Without allowOverwrite, @vercel/blob refuses any write after the first
+      // and the stored journal freezes at its original contents.
+      const putResult = await put(
+        BLOB_PATHNAME,
+        JSON.stringify(document, null, 2),
+        {
+          access: "public",
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "application/json",
+        },
+      );
 
       return send(200, {
         ok: true,
@@ -178,7 +206,8 @@ export default async function handler(req: Request, res: ServerResponse) {
         updatedAt: document.updatedAt,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to write to storage";
+      const message =
+        err instanceof Error ? err.message : "Failed to write to storage";
       return send(500, { error: message });
     }
   }

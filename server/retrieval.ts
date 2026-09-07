@@ -1,5 +1,5 @@
-import corpus from "./generated/manual-pages.json";
-import translation from "../knowledge/translations/jp-early.en.json";
+import corpus from "./generated/manual-pages.json" with { type: "json" };
+import translation from "../knowledge/translations/jp-early.en.json" with { type: "json" };
 import { createHash } from "node:crypto";
 import {
   findTopics,
@@ -7,7 +7,7 @@ import {
   topicPage,
   type ManualId,
   type Citation,
-} from "../src/manuals";
+} from "../src/manuals.js";
 export function retrievePages(query: string, edition?: string) {
   const topics = findTopics(query);
   const docs = corpus.documents.filter(

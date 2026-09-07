@@ -163,12 +163,61 @@ describe("Journal API endpoint", () => {
     expect(vi.mocked(put)).toHaveBeenCalledTimes(1);
     const [pathname, bodyString, options] = vi.mocked(put).mock.calls[0];
     expect(pathname).toBe("car-journal.json");
-    expect(options).toMatchObject({ access: "public", addRandomSuffix: false });
+    expect(options).toMatchObject({
+      access: "public",
+      addRandomSuffix: false,
+      allowOverwrite: true,
+    });
     const savedDoc = JSON.parse(bodyString as string);
     expect(savedDoc.entries).toHaveLength(1);
     expect(savedDoc.entries[0].title).toBe("Brake Fluid Flush");
     expect(savedDoc.profile.mileage).toBe("172000");
     expect(res.getJson().ok).toBe(true);
     expect(res.getJson().count).toBe(1);
+  });
+});
+
+// The journal is written to one fixed pathname, so every save after the first
+// is an overwrite. A mock that always resolves hides that: production froze at
+// its first write because `put` rejects an existing blob unless asked to
+// overwrite. This mock enforces the real rule.
+describe("overwriting the stored journal", () => {
+  it("asks Blob to overwrite, so the second save is not rejected", async () => {
+    const stored = new Set<string>();
+    vi.mocked(put).mockImplementation((async (
+      pathname: string,
+      _body: unknown,
+      options: { allowOverwrite?: boolean },
+    ) => {
+      if (stored.has(pathname) && !options?.allowOverwrite) {
+        throw new Error(
+          "Vercel Blob: This blob already exists, use `allowOverwrite: true`",
+        );
+      }
+      stored.add(pathname);
+      return { url: `https://blob.vercel-storage.com/${pathname}` };
+    }) as never);
+
+    const payload = {
+      entries: [
+        {
+          id: "entry-1",
+          date: "2026-09-07",
+          mileage: "172500",
+          unit: "mi",
+          title: "Oil change",
+          notes: "",
+        },
+      ],
+    };
+    for (const attempt of [1, 2]) {
+      const res = mockResponse();
+      await handler(
+        { method: "POST", headers: {}, body: payload } as never,
+        res as never,
+      );
+      expect(res.statusCode, `save #${attempt} should succeed`).toBe(200);
+    }
+    expect(vi.mocked(put)).toHaveBeenCalledTimes(2);
   });
 });
