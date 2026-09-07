@@ -197,3 +197,93 @@ describe("offline-first behaviour", () => {
     expect(await screen.findByText("Vercel Blob synced")).toBeTruthy();
   });
 });
+
+describe("sync status honesty", () => {
+  // A local entry the cloud has not seen is pushed on mount. If that push
+  // fails the badge must say so: reporting "synced" regardless is what let a
+  // day-long Blob outage look healthy.
+  function cloudReturns(entries: unknown[]) {
+    return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/journal" && (!init || init.method === "GET"))
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            entries,
+            profile: null,
+            updatedAt: "2026-09-06T00:00:00Z",
+            exists: true,
+          }),
+        });
+      // Any write fails, the way production did.
+      return Promise.resolve({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: "This blob already exists" }),
+      });
+    });
+  }
+
+  it("does not claim synced when the merge push fails", async () => {
+    window.localStorage.setItem(
+      "cardoc-journal",
+      JSON.stringify([
+        {
+          id: "local-only",
+          date: "2026-09-07",
+          mileage: "172600",
+          unit: "mi",
+          title: "Local only entry",
+          notes: "",
+        },
+      ]),
+    );
+    window.localStorage.setItem("cardoc-service-report-v2", "added");
+    vi.stubGlobal(
+      "fetch",
+      cloudReturns([
+        {
+          id: "cloud-1",
+          date: "2026-09-01",
+          mileage: "172000",
+          unit: "mi",
+          title: "Cloud entry",
+          notes: "",
+        },
+      ]),
+    );
+
+    const u = userEvent.setup();
+    render(<App />);
+    await u.click(screen.getByRole("button", { name: "Service journal" }));
+    // The merge itself still happens: both entries are on the device.
+    expect(await screen.findByText("Local only entry")).toBeTruthy();
+    expect(screen.getByText("Cloud entry")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByText(/syncs when online/)).toBeTruthy(),
+    );
+    expect(screen.queryByText("Vercel Blob synced")).toBeNull();
+  });
+
+  it("reports synced when the cloud already has everything", async () => {
+    window.localStorage.setItem("cardoc-journal", JSON.stringify([]));
+    window.localStorage.setItem("cardoc-service-report-v2", "added");
+    vi.stubGlobal(
+      "fetch",
+      cloudReturns([
+        {
+          id: "cloud-1",
+          date: "2026-09-01",
+          mileage: "172000",
+          unit: "mi",
+          title: "Cloud entry",
+          notes: "",
+        },
+      ]),
+    );
+    const u = userEvent.setup();
+    render(<App />);
+    await u.click(screen.getByRole("button", { name: "Service journal" }));
+    expect(await screen.findByText("Vercel Blob synced")).toBeTruthy();
+  });
+});

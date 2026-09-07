@@ -153,39 +153,43 @@ export function App() {
     [installer, setInstaller] = useState<InstallPromptEvent | null>(null);
   const messages = conversation.messages;
   const chatBody = useRef<HTMLDivElement>(null);
+  // Reconcile this device with the cloud once, on mount. `entries` and
+  // `profile` are read from the mount-time closure deliberately: this runs
+  // exactly once, so they hold the values loaded from local storage.
   useEffect(() => {
     let active = true;
+    // Every path ends by reporting what actually happened. Claiming "synced"
+    // for a push that failed is what let a total sync outage look healthy.
+    function report(promise: Promise<SaveResult>) {
+      setSyncStatus("syncing");
+      promise.then((res) => {
+        if (active) setSyncStatus(statusFor(res));
+      });
+    }
     fetchCloudJournal().then((cloudData) => {
-      if (!active || !cloudData) {
-        if (active) setSyncStatus(hasPendingJournal() ? "pending" : "offline");
+      if (!active) return;
+      if (!cloudData) {
+        setSyncStatus(hasPendingJournal() ? "pending" : "offline");
         return;
       }
-      if (cloudData.entries && cloudData.entries.length > 0) {
-        setEntries((localEntries) => {
-          const cloudIds = new Set(cloudData.entries.map((e) => e.id));
-          const unsynced = localEntries.filter((e) => !cloudIds.has(e.id));
-          if (unsynced.length > 0) {
-            const merged = [...unsynced, ...cloudData.entries];
-            saveCloudJournal(merged, profile);
-            return merged;
-          }
-          return cloudData.entries;
-        });
-        if (cloudData.profile) {
-          setProfile((localProfile) => ({
-            ...localProfile,
-            ...cloudData.profile,
-          }));
-        }
-        setSyncStatus("synced");
-      } else if (entries.length > 0) {
-        setSyncStatus("syncing");
-        saveCloudJournal(entries, profile).then((res) => {
-          if (active) setSyncStatus(statusFor(res));
-        });
-      } else {
-        setSyncStatus("synced");
+      const cloud = cloudData.entries ?? [];
+      if (cloud.length === 0) {
+        if (entries.length > 0) report(saveCloudJournal(entries, profile));
+        else setSyncStatus("synced");
+        return;
       }
+      const cloudIds = new Set(cloud.map((e) => e.id));
+      const unsynced = entries.filter((e) => !cloudIds.has(e.id));
+      const merged = unsynced.length > 0 ? [...unsynced, ...cloud] : cloud;
+      // Push the same profile that is about to be displayed, so the stored
+      // document and this device do not disagree.
+      const mergedProfile = cloudData.profile
+        ? { ...profile, ...cloudData.profile }
+        : profile;
+      setEntries(merged);
+      if (cloudData.profile) setProfile(mergedProfile);
+      if (unsynced.length === 0) setSyncStatus("synced");
+      else report(saveCloudJournal(merged, mergedProfile));
     });
     return () => {
       active = false;
